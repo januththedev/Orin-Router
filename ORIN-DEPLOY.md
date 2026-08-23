@@ -92,7 +92,33 @@ OmniRoute looks like a Next.js site (the dashboard is), but it is **not** server
 2. **One long-running Node process** (dashboard + AI proxy + background schedulers).
 3. Native `better-sqlite3` module + long-lived SSE streams.
 
-### ✅ Option A — Render Free with the PREBUILT image ($0, no card — RECOMMENDED)
+### ⚡ Option 0 — FASTEST: official upstream image + native password ($0, no card)
+
+Skip this fork's custom gate entirely and run stock OmniRoute with its built-in single-
+password login. Ten minutes, zero builds:
+
+1. Render → New + → **Web Service** → *Deploy an existing image from a registry* →
+   Image URL: `docker.io/diegosouzapw/omniroute:main`
+   (official upstream image, rebuilt daily; ~486 MB compressed)
+2. Environment:
+   - `JWT_SECRET` = random 32+ chars (`node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`)
+   - `INITIAL_PASSWORD` = your strong admin password (this IS the login — OmniRoute's
+     native system bootstraps it into bcrypt automatically, even after container resets)
+   - `PORT` = `10000`
+3. Create → wait for **Live** → open the URL → log in with that password.
+4. Dashboard → **API Keys / Virtual Keys** → create keys for each system.
+5. Wire the website: Vercel env `ROUTER_BASE_URL` = your onrender.com URL,
+   `ROUTER_API_KEY` = one of those keys. Done — the chatbot routes through the router,
+   with automatic direct-OpenRouter failover whenever the router sleeps or fails.
+
+**Honest trade-offs vs this fork's gated version:** single password factor (no email/
+phones/IP-block), and on Free tier the container filesystem resets on wake/redeploy —
+your LOGIN keeps working (env re-bootstraps), but dashboard-created API keys must be
+re-created after resets. The website itself never breaks: its key lives in Vercel env.
+This fork (`Januth1234/Orin-Router`) preserves the 4-factor gate code for whenever you
+move to persistent hosting and want it back.
+
+### Option A — Render Free with this fork's PREBUILT image ($0, no card, with the 4-factor gate)
 
 > **Why prebuilt?** Render's free builder caps at 8 GB RAM and this monorepo's Next.js
 > build needs more — it fails with *"Ran out of memory (used over 8GB)"*. So GitHub
@@ -121,7 +147,7 @@ Free-tier behavior (still $0): sleeps after ~15 min idle (~50 s wake); container
 filesystem resets on wake/redeploy so analytics reset — your four-factor login keeps
 working because `ADMIN_PASSWORD` re-bootstraps from env.
 
-### Option A′ — Build directly on Render (only if you upgrade builder memory)
+### Option A″ — Build directly on Render (only if you upgrade builder memory)
 
 The original path — connect the repo and let Render build the Dockerfile — works only
 on paid tiers with larger builders (the Free builder's 8 GB is what produced the OOM).
