@@ -74,68 +74,77 @@ ROUTER_API_KEY=<key issued by this dashboard>
 
 ---
 
-## 3. Deployment options
+## 3. Deployment options — $0, NO credit card
 
-### ⚠️ Vercel will NOT work — do not deploy this on Vercel
+First, an important architectural fact that makes $0 easy:
 
-OmniRoute looks like a Next.js site (the dashboard is), but it is **not** a normal
-static/serverless website:
+> **The router is OPTIONAL for the website.** orinai.org runs perfectly with just a
+> free OpenRouter key (its `:free` models) plus the free Gemini fallback built into
+> `api/chat.js`. If `ROUTER_BASE_URL` is not set, the site never calls the router at
+> all. Deploy the router whenever you want the admin dashboard/analytics — the chatbot
+> does not depend on it.
 
-1. **It stores all state in SQLite on local disk** (`~/.omniroute/storage.sqlite` —
-   settings, provider keys, usage analytics, virtual keys). Vercel functions have an
-   ephemeral filesystem: everything written is wiped on every cold start, so your admin
-   login state and usage stats would reset constantly.
-2. **It is one long-running Node process** — dashboard server + LLM proxy + background
-   schedulers in a single app. Vercel's serverless model (short-lived functions) doesn't
-   fit.
-3. It uses the **native `better-sqlite3` module** and holds **long-lived SSE streams**
-   for streaming AI responses.
+### ⚠️ Vercel will NOT work for the router
 
-Deploy it on any host that runs a **persistent Docker/Node container**:
+OmniRoute looks like a Next.js site (the dashboard is), but it is **not** serverless:
 
-### ✅ Railway (recommended — easiest)
+1. **All state lives in SQLite on local disk** (`~/.omniroute/storage.sqlite`).
+2. **One long-running Node process** (dashboard + AI proxy + background schedulers).
+3. Native `better-sqlite3` module + long-lived SSE streams.
 
-1. Go to [railway.app](https://railway.app) → sign in with GitHub → **New Project →
-   Deploy from GitHub repo** → pick `Januth1234/Orin-Router`.
-2. Railway detects the root `Dockerfile` and builds it. Open the service → **Variables**
-   tab → add every env var from §2 (`JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PHONE_1`,
-   `ADMIN_PHONE_2`, `ADMIN_PASSWORD`, `ADMIN_IP_BLOCK=On`, …). Redeploys are automatic
-   on git push.
-3. **Persistence**: Service → **Volumes** → add a volume mounted at `/root/.omniroute`
-   so the SQLite database survives restarts/upgrades.
-4. **Settings → Networking → Generate Domain** → you get a
-   `https://<name>.up.railway.app` URL. That HTTPS URL is your `ROUTER_BASE_URL`
-   for the website.
-5. Sign in at that URL with the four factors, open the API-keys/Virtual-keys page,
-   create a key, and put it (plus the URL) into the **website's Vercel env vars** as
-   `ROUTER_BASE_URL` / `ROUTER_API_KEY`.
+### ✅ Option A — Render Free ($0, no card — RECOMMENDED)
 
-Cost note: Railway gives a small trial credit, then pay-as-you-go (a minimal always-on
-box is a few $/month). If you need strictly $0, use Render below.
+1. [render.com](https://render.com) → **Get Started** (sign in with GitHub — no card asked).
+2. New + → **Web Service** → *Build and deploy from a Git repository* → connect
+   `Januth1234/Orin-Router`.
+3. Runtime: **Docker** (auto-detected from the root Dockerfile). Instance type: **Free**.
+4. **Environment** tab → add: `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PHONE_1`,
+   `ADMIN_PHONE_2`, `ADMIN_PASSWORD`, `ADMIN_IP_BLOCK=On`, `INITIAL_PASSWORD`
+   (any value — ADMIN_PASSWORD overrides it). Every push to `main` auto-redeploys.
+5. Create Web Service → you get `https://<name>.onrender.com` — that is your admin
+   panel URL (`ROUTER_BASE_URL` if you choose to wire the website to it).
 
-### Render (free tier possible, slower wake-ups)
+Free-tier behavior (be aware, still $0):
+- **Sleeps after ~15 min idle; first request takes ~50 s to wake.** Fine for an
+  occasional admin dashboard.
+- The container filesystem resets on wake/redeploy, so analytics and any keys saved
+  in the dashboard reset too. Your four-factor login keeps working because
+  `ADMIN_PASSWORD` re-bootstraps from env. Re-enter provider settings after long sleeps,
+  or treat the dashboard as read-mostly monitoring.
 
-1. [render.com](https://render.com) → New → **Web Service** → connect
-   `Januth1234/Orin-Router` → Runtime **Docker**.
-2. Same env vars as above. Instance type **Free** works but **spins down after ~15 min
-   idle** — the first request then takes ~50 s to wake. For an admin panel + low-traffic
-   router this is usually acceptable; the paid Starter (~$7/mo) stays always-on.
-3. Persistent disks require a paid instance; mount at `/root/.omniroute`. On Free,
-   expect settings/analytics to reset on each redeploy.
-4. Use the generated `onrender.com` URL as `ROUTER_BASE_URL`.
+### ✅ Option B — Hugging Face Spaces Docker ($0, no card)
 
-### Fly.io
+1. [huggingface.co](https://huggingface.co) → sign up free (email only) → **New Space**
+   → SDK: **Docker** → *Blank* → set visibility **Private**.
+2. Add your GitHub repo as remote and push, or upload the repo files (Space builds the
+   root Dockerfile). In `README.md` front-matter set `app_port` to the port OmniRoute
+   listens on (default 3000-ish; check its docs/start command).
+3. Settings → **Variables and secrets** → add the same env vars as above as Secrets.
+4. URL: `https://<user>-<space>.hf.space`. No card anywhere.
 
-A ready `fly.toml` ships in this repo: install `flyctl` → `fly launch` → set secrets
-(`fly secrets set JWT_SECRET=… ADMIN_EMAIL=… …`) → `fly deploy`. Attach a volume at
-`/root/.omniroute` for persistence.
+Behavior: sleeps after ~48 h idle (longer warm retention than Render), rebuilds wipe
+local SQLite the same way.
 
-### VPS / anything with Docker
+### Option C — Koyeb free instance
 
-`docker compose -f docker-compose.prod.yml up -d --build` behind Caddy/Nginx for HTTPS.
+Koyeb's free tier (GitHub signup, no card) gives one small web service with
+scale-to-zero. Deploy the Docker image, same env vars. Capacity is small — verify the
+Next.js dashboard fits in the free RAM before relying on it.
 
-A reverse proxy handling HTTPS is strongly recommended on every option; OmniRoute sets
-its auth cookie to `secure` automatically behind HTTPS.
+### ❌ Avoid for $0-no-card
+
+- **Railway**: trial credit then paid plan; new accounts are pushed through payment
+  verification (card).
+- **Fly.io**: new organizations require a payment method on file.
+- **Oracle Cloud / GCP / Azure free VMs**: genuinely free tiers but all require a
+  credit/debit card at signup for verification.
+- **Vercel/Netlify**: serverless-only, incompatible per above.
+
+### If you ever accept a few dollars/month
+
+Railway or Fly with a persistent volume mounted at `/root/.omniroute` removes the
+reset caveat entirely and keeps the dashboard always-on. Until then, Render Free +
+the env-based credentials give you the full admin experience at exactly $0.
 
 ## 4. Where to see usage
 
