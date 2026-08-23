@@ -50,8 +50,11 @@ export async function GET() {
     const settings = await getSettings();
     const requireLogin = settings.requireLogin !== false;
     const authenticated = await checkSessionAuthenticated();
-    const hasPassword = hasManagementPasswordConfigured(settings);
-    const setupComplete = !!settings.setupComplete;
+    // When ADMIN_PASSWORD is provisioned via env, the Orin gate verifies it directly
+    // and no stored bcrypt hash is ever needed — report credentials as configured.
+    const adminPasswordProvisioned = Boolean(process.env.ADMIN_PASSWORD);
+    const hasPassword = hasManagementPasswordConfigured(settings) || adminPasswordProvisioned;
+    const setupComplete = !!settings.setupComplete || adminPasswordProvisioned;
     const oidcEnabled = !!settings.oidcEnabled;
     const oidcDisablePasswordLogin =
       oidcEnabled &&
