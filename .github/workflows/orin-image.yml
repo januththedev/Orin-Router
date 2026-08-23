@@ -8,7 +8,12 @@ on:
     branches: [main]
     paths-ignore:
       - "**/*.md"
+      - ".github/**"
   workflow_dispatch:
+  # Never run two heavy builds at once — a new push supersedes the running one.
+concurrency:
+  group: orin-router-image
+  cancel-in-progress: true
 
 permissions:
   contents: read
