@@ -146,6 +146,43 @@ Railway or Fly with a persistent volume mounted at `/root/.omniroute` removes th
 reset caveat entirely and keeps the dashboard always-on. Until then, Render Free +
 the env-based credentials give you the full admin experience at exactly $0.
 
+### Capacity: will free hosting handle 100–1000 requests/hour?
+
+Yes — that load is small. 100–1000 req/hour ≈ **0.03–0.28 requests/second** on average.
+Render's Free container (512 MB RAM, shared vCPU) comfortably proxies this once awake,
+and at ≥100 req/h spread across the hour the service rarely idles long enough to sleep
+(sleep only kicks in after ~15 min of zero traffic; a wake costs ~50 s).
+
+Two honest limits to know about:
+
+1. **Provider caps, not hosting**: OpenRouter's `:free` models allow ~50 requests/DAY
+   per account (raised to ~1000/day after any one-time $10 top-up). At 100–1000
+   requests/HOUR you will exhaust free daily quotas quickly — that's OpenRouter's rule,
+   nothing to do with hosting. Plan your model mix accordingly.
+2. **RAM**: the dashboard is a full Next.js app. If the Free container ever OOMs on
+   start, Render's Starter ($7) is the fix — still not required for the website itself,
+   since it falls back to direct OpenRouter whenever the router is asleep/unreachable.
+
+### Issuing API keys for your other systems (up to 5)
+
+OmniRoute's dashboard has built-in key management — no code changes needed:
+
+1. Sign in → **API Keys / Virtual Keys** page → **Create Key**, name it per system
+   (e.g. `orinai-website`, `system-b`, `mobile-app`, …).
+2. Copy each key ONCE (shown only at creation).
+3. Any system then calls the router exactly like OpenAI:
+
+```
+POST https://<your-router>.onrender.com/v1/chat/completions
+Authorization: Bearer <key>
+Content-Type: application/json
+{"model": "google/gemini-2.0-flash-001", "messages": [...]}
+```
+
+4. Create up to 5 keys — one per integrated system — so you can revoke/rotate them
+   independently. Per-key usage shows in the dashboard analytics (tokens + models).
+5. The main website uses one of these keys as `ROUTER_API_KEY` in its Vercel env vars.
+
 ## 4. Where to see usage
 
 Sign in at `https://<your-instance>/login` with the four factors → the dashboard shows:
