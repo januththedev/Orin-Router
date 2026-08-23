@@ -92,25 +92,40 @@ OmniRoute looks like a Next.js site (the dashboard is), but it is **not** server
 2. **One long-running Node process** (dashboard + AI proxy + background schedulers).
 3. Native `better-sqlite3` module + long-lived SSE streams.
 
-### ✅ Option A — Render Free ($0, no card — RECOMMENDED)
+### ✅ Option A — Render Free with the PREBUILT image ($0, no card — RECOMMENDED)
 
-1. [render.com](https://render.com) → **Get Started** (sign in with GitHub — no card asked).
-2. New + → **Web Service** → *Build and deploy from a Git repository* → connect
-   `Januth1234/Orin-Router`.
-3. Runtime: **Docker** (auto-detected from the root Dockerfile). Instance type: **Free**.
-4. **Environment** tab → add: `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PHONE_1`,
-   `ADMIN_PHONE_2`, `ADMIN_PASSWORD`, `ADMIN_IP_BLOCK=On`, `INITIAL_PASSWORD`
-   (any value — ADMIN_PASSWORD overrides it). Every push to `main` auto-redeploys.
-5. Create Web Service → you get `https://<name>.onrender.com` — that is your admin
-   panel URL (`ROUTER_BASE_URL` if you choose to wire the website to it).
+> **Why prebuilt?** Render's free builder caps at 8 GB RAM and this monorepo's Next.js
+> build needs more — it fails with *"Ran out of memory (used over 8GB)"*. So GitHub
+> Actions builds the image instead (16 GB runners, free for public repos) and Render
+> just pulls it. The workflow `.github/workflows/orin-image.yml` does this automatically
+> on every push to `main`.
 
-Free-tier behavior (be aware, still $0):
-- **Sleeps after ~15 min idle; first request takes ~50 s to wake.** Fine for an
-  occasional admin dashboard.
-- The container filesystem resets on wake/redeploy, so analytics and any keys saved
-  in the dashboard reset too. Your four-factor login keeps working because
-  `ADMIN_PASSWORD` re-bootstraps from env. Re-enter provider settings after long sleeps,
-  or treat the dashboard as read-mostly monitoring.
+**One-time setup:**
+
+1. Check the build ran: on GitHub → your repo → **Actions** → "Build Orin Router
+   image" → wait for the green ✓ (~15–25 min first time; cached rebuilds are faster).
+2. Make the package pullable: GitHub → your profile → **Packages** → `orin-router` →
+   **Package settings** → *Danger Zone* → **Change visibility → Public**
+   (one-time; GHCR packages are private by default even in public repos).
+3. On [render.com](https://render.com) (GitHub sign-in, no card): New + → **Web
+   Service** → *Deploy an existing image from a registry* → Image URL:
+   `ghcr.io/januth1234/orin-router:latest`
+4. Add env vars (`JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PHONE_1`, `ADMIN_PHONE_2`,
+   `ADMIN_PASSWORD`, `ADMIN_IP_BLOCK=On`) → Create Web Service → you get a
+   `https://<name>.onrender.com` URL.
+
+Future updates = just `git push`; Actions rebuilds the image, then on Render click
+**Manual Deploy → Deploy latest reference** to pick it up.
+
+Free-tier behavior (still $0): sleeps after ~15 min idle (~50 s wake); container
+filesystem resets on wake/redeploy so analytics reset — your four-factor login keeps
+working because `ADMIN_PASSWORD` re-bootstraps from env.
+
+### Option A′ — Build directly on Render (only if you upgrade builder memory)
+
+The original path — connect the repo and let Render build the Dockerfile — works only
+on paid tiers with larger builders (the Free builder's 8 GB is what produced the OOM).
+Kept here for completeness.
 
 ### ✅ Option B — Hugging Face Spaces Docker ($0, no card)
 
