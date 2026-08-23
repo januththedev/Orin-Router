@@ -76,25 +76,66 @@ ROUTER_API_KEY=<key issued by this dashboard>
 
 ## 3. Deployment options
 
-OmniRoute is a long-running Node server (not serverless). Pick one:
+### ⚠️ Vercel will NOT work — do not deploy this on Vercel
 
-**Docker (recommended)**
+OmniRoute looks like a Next.js site (the dashboard is), but it is **not** a normal
+static/serverless website:
 
-```bash
-docker compose -f docker-compose.prod.yml up -d --build
-```
+1. **It stores all state in SQLite on local disk** (`~/.omniroute/storage.sqlite` —
+   settings, provider keys, usage analytics, virtual keys). Vercel functions have an
+   ephemeral filesystem: everything written is wiped on every cold start, so your admin
+   login state and usage stats would reset constantly.
+2. **It is one long-running Node process** — dashboard server + LLM proxy + background
+   schedulers in a single app. Vercel's serverless model (short-lived functions) doesn't
+   fit.
+3. It uses the **native `better-sqlite3` module** and holds **long-lived SSE streams**
+   for streaming AI responses.
 
-**Node directly**
+Deploy it on any host that runs a **persistent Docker/Node container**:
 
-```bash
-corepack enable && pnpm install && pnpm build && pnpm start   # see package.json scripts
-```
+### ✅ Railway (recommended — easiest)
 
-**Railway / Render / Fly.io**: import this repo; `fly.toml` is included for Fly. Set every
-env var from §2 in the host's dashboard before first boot.
+1. Go to [railway.app](https://railway.app) → sign in with GitHub → **New Project →
+   Deploy from GitHub repo** → pick `Januth1234/Orin-Router`.
+2. Railway detects the root `Dockerfile` and builds it. Open the service → **Variables**
+   tab → add every env var from §2 (`JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PHONE_1`,
+   `ADMIN_PHONE_2`, `ADMIN_PASSWORD`, `ADMIN_IP_BLOCK=On`, …). Redeploys are automatic
+   on git push.
+3. **Persistence**: Service → **Volumes** → add a volume mounted at `/root/.omniroute`
+   so the SQLite database survives restarts/upgrades.
+4. **Settings → Networking → Generate Domain** → you get a
+   `https://<name>.up.railway.app` URL. That HTTPS URL is your `ROUTER_BASE_URL`
+   for the website.
+5. Sign in at that URL with the four factors, open the API-keys/Virtual-keys page,
+   create a key, and put it (plus the URL) into the **website's Vercel env vars** as
+   `ROUTER_BASE_URL` / `ROUTER_API_KEY`.
 
-A reverse proxy in front (Caddy/Nginx/Cloudflare) handling HTTPS is strongly recommended;
-OmniRoute sets its auth cookie to `secure` automatically behind HTTPS.
+Cost note: Railway gives a small trial credit, then pay-as-you-go (a minimal always-on
+box is a few $/month). If you need strictly $0, use Render below.
+
+### Render (free tier possible, slower wake-ups)
+
+1. [render.com](https://render.com) → New → **Web Service** → connect
+   `Januth1234/Orin-Router` → Runtime **Docker**.
+2. Same env vars as above. Instance type **Free** works but **spins down after ~15 min
+   idle** — the first request then takes ~50 s to wake. For an admin panel + low-traffic
+   router this is usually acceptable; the paid Starter (~$7/mo) stays always-on.
+3. Persistent disks require a paid instance; mount at `/root/.omniroute`. On Free,
+   expect settings/analytics to reset on each redeploy.
+4. Use the generated `onrender.com` URL as `ROUTER_BASE_URL`.
+
+### Fly.io
+
+A ready `fly.toml` ships in this repo: install `flyctl` → `fly launch` → set secrets
+(`fly secrets set JWT_SECRET=… ADMIN_EMAIL=… …`) → `fly deploy`. Attach a volume at
+`/root/.omniroute` for persistence.
+
+### VPS / anything with Docker
+
+`docker compose -f docker-compose.prod.yml up -d --build` behind Caddy/Nginx for HTTPS.
+
+A reverse proxy handling HTTPS is strongly recommended on every option; OmniRoute sets
+its auth cookie to `secure` automatically behind HTTPS.
 
 ## 4. Where to see usage
 
