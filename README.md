@@ -5,6 +5,8 @@
 <br/>
 <br/>
 
+> **Orin release note (2026-09-25):** This legacy OmniRoute checkout is retained for historical self-hosting and provider research. The supported Orin Router release is [`januththedev/orin-router-service`](https://github.com/januththedev/orin-router-service), which owns the four canonical aliases, Core service assertions, encrypted provider-key management, durable routing state, and the Vercel deployment contract. Do not expose this legacy app as the current Orin Router surface without completing the migration gates in [`ORIN-CANONICAL.md`](ORIN-CANONICAL.md).
+
 # 🚀 OmniRoute — The Free AI Gateway
 
 <img src="./docs/diagrams/readme-hero.svg" width="100%" alt="OmniRoute — Never stop coding. Every AI tool → 349 providers — 90+ free — through one endpoint. Claude Code, Codex, Cursor, Cline, Copilot & Antigravity into FREE Claude / GPT / Gemini with auto-fallback. RTK + Caveman stacked compression saves 15–95% tokens (~89% avg) — never hit limits. 349 AI providers · 90+ free tiers · ~1.51B free tokens/mo · 19 routing strategies · $0 to start."/>
